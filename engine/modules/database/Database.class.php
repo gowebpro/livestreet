@@ -65,9 +65,10 @@ class ModuleDatabase extends Module {
 	 * Получает объект БД
 	 *
 	 * @param array|null $aConfig - конфиг подключения к БД(хост, логин, пароль, тип бд, имя бд), если null, то используются параметры из конфига Config::Get('db.params')
-	 * @return DbSimple_Generic_Database DbSimple
+	 * @param bool $bForce Создавать принудительно новый коннект, даже если он уже существует
+	 * @return ModuleDatabase_DbSimpleWrapper DbSimple
 	 */
-	public function GetConnect($aConfig=null) {
+	public function GetConnect($aConfig=null, $bForce = false) {
 		/**
 		 * Получаем DSN
 		 */
