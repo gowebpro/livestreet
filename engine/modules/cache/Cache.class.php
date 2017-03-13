@@ -28,6 +28,7 @@ require_once(LS_DKCACHE_PATH.'Cache/Backend/Profiler.php');
 define('SYS_CACHE_TYPE_FILE','file');
 define('SYS_CACHE_TYPE_MEMORY','memory');
 define('SYS_CACHE_TYPE_XCACHE','xcache');
+define('SYS_CACHE_TYPE_LIBMEMCACHED','libmemcached');
 
 /**
  * Модуль кеширования.
@@ -148,18 +149,27 @@ class ModuleCache extends Module {
 				)
 			);
 			$this->oBackendCache = new Dklab_Cache_Backend_Profiler($oCahe,array($this,'CalcStats'));
-			/**
-			 * Кеш на основе Memcached
-			 */
+		/**
+		 * Кеш на основе Memcached
+		 */
 		} elseif ($this->sCacheType==SYS_CACHE_TYPE_MEMORY) {
 			require_once(LS_DKCACHE_PATH.'Zend/Cache/Backend/Memcached.php');
 			$aConfigMem=Config::Get('memcache');
 
 			$oCahe = new Dklab_Cache_Backend_MemcachedMultiload($aConfigMem);
 			$this->oBackendCache = new Dklab_Cache_Backend_TagEmuWrapper(new Dklab_Cache_Backend_Profiler($oCahe,array($this,'CalcStats')));
-			/**
-			 * Кеш на основе XCache
-			 */
+		/**
+		 * Кеш на основе Libmemcached
+		 */
+		} elseif ($this->sCacheType==SYS_CACHE_TYPE_LIBMEMCACHED) {
+			require_once(LS_DKCACHE_PATH.'Zend/Cache/Backend/Libmemcached.php');
+			$aConfigMem=Config::Get('libmemcached');
+
+			$oCahe = new Zend_Cache_Backend_Libmemcached(is_array($aConfigMem) ? $aConfigMem : array());
+			$this->oBackendCache = new Dklab_Cache_Backend_TagEmuWrapper(new Dklab_Cache_Backend_Profiler($oCahe,array($this,'CalcStats')));
+		/**
+		 * Кеш на основе XCache
+		 */
 		} elseif ($this->sCacheType==SYS_CACHE_TYPE_XCACHE) {
 			require_once(LS_DKCACHE_PATH.'Zend/Cache/Backend/Xcache.php');
 			$aConfigMem=Config::Get('xcache');
@@ -167,7 +177,7 @@ class ModuleCache extends Module {
 			$oCahe = new Zend_Cache_Backend_Xcache(is_array($aConfigMem) ? $aConfigMem : array());
 			$this->oBackendCache = new Dklab_Cache_Backend_TagEmuWrapper(new Dklab_Cache_Backend_Profiler($oCahe,array($this,'CalcStats')));
 		} else {
-			throw new Exception("Wrong type of caching: ".$this->sCacheType." (file, memory, xcache)");
+			throw new Exception("Wrong type of caching: ".$this->sCacheType." (file, memory, libmemcached, xcache)");
 		}
 		/**
 		 * Дабы не засорять место протухшим кешем, удаляем его в случайном порядке, например 1 из 50 раз
