@@ -468,7 +468,11 @@ abstract class DbSimple_Database extends DbSimple_LastError
      * array _query($query, &$total)
      * See _performQuery().
      */
-    private function _query($query, &$total)
+    /*
+     * TODO:
+     * return to private
+     */
+    public function _query($query, &$total)
     {
         $this->_resetLastError();
 
