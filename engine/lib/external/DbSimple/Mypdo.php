@@ -26,6 +26,7 @@ class DbSimple_Mypdo extends DbSimple_Database
 
 	public function DbSimple_Mypdo($dsn)
 	{
+		$this->_dsnParsed=$dsn;
 		if (!class_exists('PDO'))
 			return $this->_setLastError("-1", "PDO extension is not loaded", "PDO");
 

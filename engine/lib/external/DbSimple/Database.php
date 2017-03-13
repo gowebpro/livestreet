@@ -1192,6 +1192,9 @@ abstract class DbSimple_Database extends DbSimple_LastError
         $this->_logQuery($log, true);
     }
 
+    public function getDsnParsed() {
+        return $this->_dsnParsed;
+    }
 
     // Identifiers prefix (used for ?_ placeholder).
     private $_identPrefix = '';
@@ -1209,6 +1212,7 @@ abstract class DbSimple_Database extends DbSimple_LastError
     private $_cacher = null;
     private $_placeholderArgs, $_placeholderNativeArgs, $_placeholderCache=array();
     private $_placeholderNoValueFound;
+    private $_dsnParsed = array();
 
     /**
      * When string representation of row (in characters) is greater than this,

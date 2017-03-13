@@ -35,7 +35,7 @@ class DbSimple_Postgresql extends DbSimple_Database
      */
     function DbSimple_Postgresql($dsn)
     {
-		$dsn = DbSimple_Database::parseDSN($dsn);
+		$this->_dsnParsed=$dsn;
         if (!is_callable('pg_connect')) {
             return $this->_setLastError("-1", "PostgreSQL extension is not loaded", "pg_connect");
         }

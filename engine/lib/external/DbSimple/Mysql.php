@@ -30,8 +30,9 @@ class DbSimple_Mysql extends DbSimple_Database
      * constructor(string $dsn)
      * Connect to MySQL.
      */
-    function DbSimple_Mysql($dsn)
+    function __construct($dsn)
     {
+		$this->_dsnParsed=$dsn;
 		$this->dsn=$dsn;
 		$this->_connect($dsn);
     }

@@ -25,13 +25,14 @@ require_once __DIR__.'/Database.php';
 class DbSimple_Mysqli extends DbSimple_Database
 {
     var $link;
-   /**
+    /**
      * DbSimple_Mysqli constructor.
      * Connect to MySQL server.
      * @param $dsn string
      */
     function __construct($dsn)
     {
+		$this->_dsnParsed=$dsn;
         if (!is_callable("mysqli_connect"))
             return $this->_setLastError("-1", "MySQLi extension is not loaded", "mysqli_connect");
 
