@@ -590,8 +590,8 @@ class Install {
 				 * Проверяем поддержку InnoDB в MySQL
 				 */
 				$aParams['engine']='MyISAM';				
-				if($aRes = @mysql_query('SHOW ENGINES')) {
-					while ($aRow = mysql_fetch_assoc($aRes)) {						
+				if($aRes = @mysqli_query('SHOW ENGINES')) {
+					while ($aRow = mysqli_fetch_assoc($aRes)) {						
 						if ($aRow['Engine']=='InnoDB' and in_array($aRow['Support'],array('DEFAULT','YES'))) {							
 							$aParams['engine']='InnoDB';
 						}
@@ -716,7 +716,7 @@ class Install {
 			$aParams['prefix']
 		);
 		if(!$bUpdated) {
-			$this->aMessages[] = array('type'=>'error','text'=>$this->Lang('error_db_saved').'<br />'.mysql_error());
+			$this->aMessages[] = array('type'=>'error','text'=>$this->Lang('error_db_saved').'<br />'.mysqli_error());
 			$this->Layout('steps/admin.tpl');
 			return false;	
 		}
@@ -1068,17 +1068,17 @@ class Install {
 	 * @return mixed
 	 */
 	protected function ValidateDBConnection($aParams) {
-		$oDb = @mysql_connect($aParams['server'].':'.$aParams['port'],$aParams['user'],$aParams['password']);
+		$oDb = @mysqli_connect($aParams['server'].':'.$aParams['port'],$aParams['user'],$aParams['password']);
 		if( $oDb ) {
 			/**
 			 * Валидация версии MySQL сервера
 			 */
-			if(!version_compare(mysql_get_server_info(), '5.0.0', '>')) {
+			if(!version_compare(mysqli_get_server_info(), '5.0.0', '>')) {
 				$this->aMessages[] = array('type'=>'error','text'=>$this->Lang('valid_mysql_server'));
 				return false;
 			}
 			
-			mysql_query('set names utf8');
+			mysqli_query('set names utf8');
 			return $oDb;
 		}
 		
@@ -1093,11 +1093,11 @@ class Install {
 	 * @return bool
 	 */
 	protected function SelectDatabase($sName,$bCreate=false) {
-		if(@mysql_select_db($sName)) return true;
+		if(@mysqli_select_db($sName)) return true;
 
 		if($bCreate){ 
-			@mysql_query("CREATE DATABASE $sName");
-			return @mysql_select_db($sName);
+			@mysqli_query("CREATE DATABASE $sName");
+			return @mysqli_select_db($sName);
 		} 
 		return false;
 	}
@@ -1121,11 +1121,11 @@ class Install {
 		 * Смотрим, какие таблицы существуют в базе данных
 		 */ 
 		$aDbTables = array();
-		$aResult = @mysql_query("SHOW TABLES");
+		$aResult = @mysqli_query("SHOW TABLES");
 		if(!$aResult){  
 			return array('result'=>false,'errors'=>array($this->Lang('error_db_no_data')));
 		}
-        while($aRow = mysql_fetch_array($aResult, MYSQL_NUM)){
+        while($aRow = mysqli_fetch_array($aResult, MYSQLI_NUM)){
 			$aDbTables[] = $aRow[0];
 		}
 		/**
@@ -1145,8 +1145,8 @@ class Install {
 			if(isset($aParams['engine'])) $sQuery=str_ireplace('ENGINE=InnoDB', "ENGINE={$aParams['engine']}",$sQuery);
 			
 			if($sQuery!='' and !$this->IsUseDbTable($sQuery,$aDbTables)) {
-				$bResult=mysql_query($sQuery);
-				if(!$bResult) $aErrors[] = mysql_error();
+				$bResult=mysqli_query($sQuery);
+				if(!$bResult) $aErrors[] = mysqli_error();
 			}
 		}
 		
@@ -1168,11 +1168,11 @@ class Install {
 		 * Смотрим, какие таблицы существуют в базе данных
 		 */ 
 		$aDbTables = array();
-		$aResult = @mysql_query("SHOW TABLES");
+		$aResult = @mysqli_query("SHOW TABLES");
 		if(!$aResult){  
 			return array('result'=>false,'errors'=>array($this->Lang('error_db_no_data')));
 		}
-        while($aRow = mysql_fetch_array($aResult, MYSQL_NUM)){
+        while($aRow = mysqli_fetch_array($aResult, MYSQLI_NUM)){
 			$aDbTables[] = $aRow[0];
 		}
 		/**
@@ -1211,8 +1211,8 @@ class Install {
 			if(isset($aParams['engine'])) $sQuery=str_ireplace('ENGINE=InnoDB', "ENGINE={$aParams['engine']}",$sQuery);
 			
 			if($sQuery!='') {
-				$bResult=mysql_query($sQuery);
-				if(!$bResult) $aErrors[] = mysql_error();
+				$bResult=mysqli_query($sQuery);
+				if(!$bResult) $aErrors[] = mysqli_error();
 			}
 		}
 		/**
@@ -1237,7 +1237,7 @@ class Install {
                         f.target_type = 'topic'
                 )
             ";
-		if(!mysql_query($sQuery)) $aErrors[] = mysql_error();
+		if(!mysqli_query($sQuery)) $aErrors[] = mysqli_error();
 		/**
 		 * Пересчет количества избранного для комментов
 		 */
@@ -1255,7 +1255,7 @@ class Install {
 					f.target_type = 'comment'
             )
 		";
-		if(!mysql_query($sQuery)) $aErrors[] = mysql_error();
+		if(!mysqli_query($sQuery)) $aErrors[] = mysqli_error();
 		/**
 		 * Пересчет счетчиков голосования за топик
 		 */
@@ -1292,7 +1292,7 @@ class Install {
                         v.target_type = 'topic'
                 )
             ";
-		if(!mysql_query($sQuery)) $aErrors[] = mysql_error();
+		if(!mysqli_query($sQuery)) $aErrors[] = mysqli_error();
 		/**
 		 * Пересчет количества топиков в блогах
 		 */
@@ -1309,7 +1309,7 @@ class Install {
                         t.topic_publish = 1
                 )
             ";
-		if(!mysql_query($sQuery)) $aErrors[] = mysql_error();
+		if(!mysqli_query($sQuery)) $aErrors[] = mysqli_error();
 		/**
 		 * Проставляем последнего пользователя и последний комментарий во всех личных сообщениях
 		 */
@@ -1320,12 +1320,12 @@ class Install {
 		do {
 			$iLimitStart=($iPage-1)*100;
 			$sQuery="SELECT talk_id, user_id FROM {$sTable1} LIMIT {$iLimitStart},100";
-			if(!$aResults = mysql_query($sQuery)){
-				$aErrors[] = mysql_error();
+			if(!$aResults = mysqli_query($sQuery)){
+				$aErrors[] = mysqli_error();
 				break;
 			}
-			if (mysql_num_rows($aResults)) {
-				while($aRow = mysql_fetch_assoc($aResults)) {
+			if (mysqli_num_rows($aResults)) {
+				while($aRow = mysqli_fetch_assoc($aResults)) {
 					$iTalk=$aRow['talk_id'];
 					$iUserLast=$aRow['user_id'];
 					$iCommentLast=null;
@@ -1333,11 +1333,11 @@ class Install {
 					 * Запрашиваем последний комментарий из сообщения
 					 */
 					$sQuery2="SELECT comment_id, user_id FROM {$sTable2} WHERE target_id='{$iTalk}' and target_type='talk' ORDER BY comment_id desc LIMIT 0,1";
-					if(!$aResults2 = mysql_query($sQuery2)){
-						$aErrors[] = mysql_error();
+					if(!$aResults2 = mysqli_query($sQuery2)){
+						$aErrors[] = mysqli_error();
 						continue;
 					}
-					if($aRow2 = mysql_fetch_assoc($aResults2)) {
+					if($aRow2 = mysqli_fetch_assoc($aResults2)) {
 						$iCommentLast=$aRow2['comment_id'];
 						$iUserLast=$aRow2['user_id'];
 					}
@@ -1345,8 +1345,8 @@ class Install {
 					 * Обновляем значения
 					 */
 					$sQuery3="UPDATE {$sTable1} SET talk_user_id_last='{$iUserLast}', talk_comment_id_last=".($iCommentLast ? $iCommentLast : 'null')." WHERE talk_id='{$iTalk}' ";
-					if(!mysql_query($sQuery3)) {
-						$aErrors[] = mysql_error();
+					if(!mysqli_query($sQuery3)) {
+						$aErrors[] = mysqli_error();
 						continue;
 					}
 				}
@@ -1372,40 +1372,40 @@ class Install {
 					(`user_profile_city`  IS NOT NULL and `user_profile_city`<>'')
 
 					 LIMIT {$iLimitStart},100";
-			if(!$aResults = mysql_query($sQuery)){
-				$aErrors[] = mysql_error();
+			if(!$aResults = mysqli_query($sQuery)){
+				$aErrors[] = mysqli_error();
 				break;
 			}
-			if (mysql_num_rows($aResults)) {
-				while($aRow = mysql_fetch_assoc($aResults)) {
+			if (mysqli_num_rows($aResults)) {
+				while($aRow = mysqli_fetch_assoc($aResults)) {
 					/**
 					 * Обрабатываем каждого пользователя
 					 */
 					$iUserId=$aRow['user_id'];
 					if (!$aRow['user_profile_country']) {
 						$sQuery2="UPDATE {$sTableUser} SET user_profile_country=null, user_profile_region=null, user_profile_city=null WHERE user_id={$iUserId} ";
-						if(!$aResults2 = mysql_query($sQuery2)){
-							$aErrors[] = mysql_error();
+						if(!$aResults2 = mysqli_query($sQuery2)){
+							$aErrors[] = mysqli_error();
 						}
 						continue;
 					}
-					$sCountry=mysql_real_escape_string($aRow['user_profile_country']);
-					$sCity=mysql_real_escape_string((string)$aRow['user_profile_city']);
+					$sCountry=mysqli_real_escape_string($aRow['user_profile_country']);
+					$sCity=mysqli_real_escape_string((string)$aRow['user_profile_city']);
 					/**
 					 * Ищем страну в гео-базе
 					 */
 					$sQuery2="SELECT id, name_ru FROM {$sTableGeoCountry} WHERE name_ru='{$sCountry}' or name_en='{$sCountry}' LIMIT 0,1";
-					if(!($aResults2 = mysql_query($sQuery2))){
-						$aErrors[] = mysql_error();
+					if(!($aResults2 = mysqli_query($sQuery2))){
+						$aErrors[] = mysqli_error();
 						continue;
 					}
-					if($aRow2 = mysql_fetch_assoc($aResults2)) {
+					if($aRow2 = mysqli_fetch_assoc($aResults2)) {
 						$iCountryId=$aRow2['id'];
-						$sCountryName=mysql_real_escape_string($aRow2['name_ru']);
+						$sCountryName=mysqli_real_escape_string($aRow2['name_ru']);
 					} else {
 						$sQuery2="UPDATE {$sTableUser} SET user_profile_country=null, user_profile_region=null, user_profile_city=null WHERE user_id={$iUserId} ";
-						if(!$aResults2 = mysql_query($sQuery2)){
-							$aErrors[] = mysql_error();
+						if(!$aResults2 = mysqli_query($sQuery2)){
+							$aErrors[] = mysqli_error();
 						}
 						continue;
 					}
@@ -1418,24 +1418,24 @@ class Install {
 					$sRegionName=null;
 					if ($sCity) {
 						$sQuery2="SELECT id, region_id, name_ru FROM {$sTableGeoCity} WHERE country_id='{$iCountryId}' and (name_ru='{$sCity}' or name_en='{$sCity}') LIMIT 0,1";
-						if(!($aResults2 = mysql_query($sQuery2))){
-							$aErrors[] = mysql_error();
+						if(!($aResults2 = mysqli_query($sQuery2))){
+							$aErrors[] = mysqli_error();
 							continue;
 						}
-						if($aRow2 = mysql_fetch_assoc($aResults2)) {
+						if($aRow2 = mysqli_fetch_assoc($aResults2)) {
 							$iCityId=$aRow2['id'];
-							$sCityName=mysql_real_escape_string($aRow2['name_ru']);
+							$sCityName=mysqli_real_escape_string($aRow2['name_ru']);
 							$iRegionId=$aRow2['region_id'];
 							/**
 							 * Получаем название региона
 							 */
 							$sQuery3="SELECT name_ru FROM {$sTableGeoRegion} WHERE id='{$iRegionId}' LIMIT 0,1";
-							if(!$aResults3 = mysql_query($sQuery3)){
-								$aErrors[] = mysql_error();
+							if(!$aResults3 = mysqli_query($sQuery3)){
+								$aErrors[] = mysqli_error();
 								continue;
 							}
-							if($aRow3 = mysql_fetch_assoc($aResults3)) {
-								$sRegionName=mysql_real_escape_string($aRow3['name_ru']);
+							if($aRow3 = mysqli_fetch_assoc($aResults3)) {
+								$sRegionName=mysqli_real_escape_string($aRow3['name_ru']);
 							} else {
 								continue;
 							}
@@ -1454,11 +1454,11 @@ class Install {
 					 * Проверяем отсутствие связи
 					 */
 					$sQuery2="SELECT * FROM {$sTableGeoTarget} WHERE target_type='user' and target_id='{$iUserId}' LIMIT 0,1";
-					if(!($aResults2 = mysql_query($sQuery2))){
-						$aErrors[] = mysql_error();
+					if(!($aResults2 = mysqli_query($sQuery2))){
+						$aErrors[] = mysqli_error();
 						continue;
 					}
-					if($aRow2 = mysql_fetch_assoc($aResults2)) {
+					if($aRow2 = mysqli_fetch_assoc($aResults2)) {
 						// пропускаем этого пользователя
 						continue;
 					}
@@ -1466,16 +1466,16 @@ class Install {
 					 * Создаем новую связь
 					 */
 					$sQuery2="INSERT INTO {$sTableGeoTarget} SET geo_type='{$sGeoType}', geo_id='{$iGeoId}', target_type='user', target_id='{$iUserId}', country_id=".($iCountryId ? $iCountryId : 'null').", region_id=".($iRegionId ? $iRegionId : 'null')." , city_id=".($iCityId ? $iCityId : 'null')."  ";
-					if(!($aResults2 = mysql_query($sQuery2))){
-						$aErrors[] = mysql_error();
+					if(!($aResults2 = mysqli_query($sQuery2))){
+						$aErrors[] = mysqli_error();
 						continue;
 					}
 					/**
 					 * Обновляем информацию о пользователе
 					 */
 					$sQuery2="UPDATE {$sTableUser} SET user_profile_country=".($iCountryId ? "'$sCountryName'" : 'null').", user_profile_region=".($sRegionName ? "'$sRegionName'" : 'null').", user_profile_city=".($sCityName ? "'$sCityName'" : 'null')." WHERE user_id={$iUserId} ";
-					if(!($aResults2 = mysql_query($sQuery2))){
-						$aErrors[] = mysql_error();
+					if(!($aResults2 = mysqli_query($sQuery2))){
+						$aErrors[] = mysqli_error();
 						continue;
 					}
 				}
@@ -1498,18 +1498,18 @@ class Install {
 		 * Получаем ID необходимых полей
 		 */
 		$sQuery2="SELECT id FROM {$sTableUserField} WHERE `type`='contact' and name='icq' LIMIT 0,1";
-		if(!($aResults2 = mysql_query($sQuery2))){
-			$aErrors[] = mysql_error();
+		if(!($aResults2 = mysqli_query($sQuery2))){
+			$aErrors[] = mysqli_error();
 		} else {
-			if($aRow2 = mysql_fetch_assoc($aResults2)) {
+			if($aRow2 = mysqli_fetch_assoc($aResults2)) {
 				$sFieldIdIcq=$aRow2['id'];
 			}
 		}
 		$sQuery2="SELECT id FROM {$sTableUserField} WHERE `type`='contact' and name='www' LIMIT 0,1";
-		if(!($aResults2 = mysql_query($sQuery2))){
-			$aErrors[] = mysql_error();
+		if(!($aResults2 = mysqli_query($sQuery2))){
+			$aErrors[] = mysqli_error();
 		} else {
-			if($aRow2 = mysql_fetch_assoc($aResults2)) {
+			if($aRow2 = mysqli_fetch_assoc($aResults2)) {
 				$sFieldIdWww=$aRow2['id'];
 			}
 		}
@@ -1519,31 +1519,31 @@ class Install {
 			do {
 				$iLimitStart=($iPage-1)*100;
 				$sQuery="SELECT * FROM {$sTableUser} WHERE `user_profile_country`  IS NOT NULL and `user_profile_country`<>'' LIMIT {$iLimitStart},100";
-				if(!($aResults = mysql_query($sQuery))){
-					$aErrors[] = mysql_error();
+				if(!($aResults = mysqli_query($sQuery))){
+					$aErrors[] = mysqli_error();
 					break;
 				}
-				if (mysql_num_rows($aResults)) {
-					while($aRow = mysql_fetch_assoc($aResults)) {
+				if (mysqli_num_rows($aResults)) {
+					while($aRow = mysqli_fetch_assoc($aResults)) {
 						$iUserId=$aRow['user_id'];
 						$sIcq=$aRow['user_profile_icq'];
 						$sWww=$aRow['user_profile_site'];
 						if ($sIcq) {
-							$sIcq=mysql_real_escape_string($sIcq);
+							$sIcq=mysqli_real_escape_string($sIcq);
 							/**
 							 * Проверяем отсутствие связи
 							 */
 							$sQuery2="SELECT * FROM {$sTableUserFieldValue} WHERE user_id='{$iUserId}' and field_id='{$sFieldIdIcq}' LIMIT 0,1";
-							if(!($aResults2 = mysql_query($sQuery2))){
-								$aErrors[] = mysql_error();
+							if(!($aResults2 = mysqli_query($sQuery2))){
+								$aErrors[] = mysqli_error();
 							} else {
-								if(!($aRow2 = mysql_fetch_assoc($aResults2))) {
+								if(!($aRow2 = mysqli_fetch_assoc($aResults2))) {
 									/**
 									 * Создаем новую связь
 									 */
 									$sQuery3="INSERT INTO {$sTableUserFieldValue} SET user_id='{$iUserId}', field_id='{$sFieldIdIcq}', value='{$sIcq}' ";
-									if(!$aResults3 = mysql_query($sQuery3)){
-										$aErrors[] = mysql_error();
+									if(!$aResults3 = mysqli_query($sQuery3)){
+										$aErrors[] = mysqli_error();
 									}
 								}
 							}
@@ -1553,21 +1553,21 @@ class Install {
 							$sWww=str_replace('http://','',$sWww);
 						}
 						if ($sWww) {
-							$sWww=mysql_real_escape_string($sWww);
+							$sWww=mysqli_real_escape_string($sWww);
 							/**
 							 * Проверяем отсутствие связи
 							 */
 							$sQuery2="SELECT * FROM {$sTableUserFieldValue} WHERE user_id='{$iUserId}' and field_id='{$sFieldIdWww}' LIMIT 0,1";
-							if(!($aResults2 = mysql_query($sQuery2))){
-								$aErrors[] = mysql_error();
+							if(!($aResults2 = mysqli_query($sQuery2))){
+								$aErrors[] = mysqli_error();
 							} else {
-								if(!($aRow2 = mysql_fetch_assoc($aResults2))) {
+								if(!($aRow2 = mysqli_fetch_assoc($aResults2))) {
 									/**
 									 * Создаем новую связь
 									 */
 									$sQuery3="INSERT INTO {$sTableUserFieldValue} SET user_id='{$iUserId}', field_id='{$sFieldIdWww}', value='{$sWww}' ";
-									if(!$aResults3 = mysql_query($sQuery3)){
-										$aErrors[] = mysql_error();
+									if(!$aResults3 = mysqli_query($sQuery3)){
+										$aErrors[] = mysqli_error();
 									}
 								}
 							}
@@ -1583,16 +1583,16 @@ class Install {
 		 * Удаляем поля
 		 */
 		$sQuery="ALTER TABLE `{$sTableUser}` DROP `user_profile_site` ";
-		if(!mysql_query($sQuery)){
-			$aErrors[] = mysql_error();
+		if(!mysqli_query($sQuery)){
+			$aErrors[] = mysqli_error();
 		}
 		$sQuery="ALTER TABLE `{$sTableUser}` DROP `user_profile_site_name` ";
-		if(!mysql_query($sQuery)){
-			$aErrors[] = mysql_error();
+		if(!mysqli_query($sQuery)){
+			$aErrors[] = mysqli_error();
 		}
 		$sQuery="ALTER TABLE `{$sTableUser}` DROP `user_profile_icq` ";
-		if(!mysql_query($sQuery)){
-			$aErrors[] = mysql_error();
+		if(!mysqli_query($sQuery)){
+			$aErrors[] = mysqli_error();
 		}
 		/**
 		 * Добавление тегов в избранное
@@ -1604,24 +1604,24 @@ class Install {
 		do {
 			$iLimitStart=($iPage-1)*100;
 			$sQuery="SELECT f.user_id, f.target_id, t.topic_tag_text FROM `{$sTablefFavourite}` as f, `{$sTablefTopicTag}` as t WHERE f.`target_type`='topic' and f.`target_id`=t.topic_id  LIMIT {$iLimitStart},100";
-			if(!$aResults = mysql_query($sQuery)){
-				$aErrors[] = mysql_error();
+			if(!$aResults = mysqli_query($sQuery)){
+				$aErrors[] = mysqli_error();
 				break;
 			}
-			if (mysql_num_rows($aResults)) {
-				while($aRow = mysql_fetch_assoc($aResults)) {
+			if (mysqli_num_rows($aResults)) {
+				while($aRow = mysqli_fetch_assoc($aResults)) {
 					$iUserId=$aRow['user_id'];
 					$iTargetId=$aRow['target_id'];
-					$sText=mysql_real_escape_string($aRow['topic_tag_text']);
+					$sText=mysqli_real_escape_string($aRow['topic_tag_text']);
 					/**
 					 * Проверяем наличие
 					 */
 					$sQuery2="SELECT * FROM {$sTablefFavouriteTag} WHERE user_id='{$iUserId}' and target_id='{$iTargetId}' and target_type='topic' and is_user=0 and text='{$sText}' LIMIT 0,1";
-					if(!($aResults2 = mysql_query($sQuery2))){
-						$aErrors[] = mysql_error();
+					if(!($aResults2 = mysqli_query($sQuery2))){
+						$aErrors[] = mysqli_error();
 						continue;
 					}
-					if($aRow2 = mysql_fetch_assoc($aResults2)) {
+					if($aRow2 = mysqli_fetch_assoc($aResults2)) {
 						// пропускаем
 						continue;
 					}
@@ -1629,8 +1629,8 @@ class Install {
 					 * Создаем
 					 */
 					$sQuery2="INSERT INTO {$sTablefFavouriteTag} SET user_id='{$iUserId}', target_id='{$iTargetId}', target_type='topic', is_user=0, text='{$sText}' ";
-					if(!($aResults2 = mysql_query($sQuery2))){
-						$aErrors[] = mysql_error();
+					if(!($aResults2 = mysqli_query($sQuery2))){
+						$aErrors[] = mysqli_error();
 						continue;
 					}
 				}
@@ -1647,20 +1647,20 @@ class Install {
 		do {
 			$iLimitStart=($iPage-1)*100;
 			$sQuery="SELECT * FROM {$sTableUser} WHERE `user_profile_about`  IS NOT NULL and `user_profile_about`<>'' LIMIT {$iLimitStart},100";
-			if(!$aResults = mysql_query($sQuery)){
-				$aErrors[] = mysql_error();
+			if(!$aResults = mysqli_query($sQuery)){
+				$aErrors[] = mysqli_error();
 				break;
 			}
-			if (mysql_num_rows($aResults)) {
-				while($aRow = mysql_fetch_assoc($aResults)) {
-					$sAbout=mysql_real_escape_string(htmlspecialchars(strip_tags($aRow['user_profile_about'])));
+			if (mysqli_num_rows($aResults)) {
+				while($aRow = mysqli_fetch_assoc($aResults)) {
+					$sAbout=mysqli_real_escape_string(htmlspecialchars(strip_tags($aRow['user_profile_about'])));
 					$iUserId=$aRow['user_id'];
 					/**
 					 * Обновляем информацию о пользователе
 					 */
 					$sQuery2="UPDATE {$sTableUser} SET user_profile_about='{$sAbout}' WHERE user_id={$iUserId} ";
-					if(!($aResults2 = mysql_query($sQuery2))){
-						$aErrors[] = mysql_error();
+					if(!($aResults2 = mysqli_query($sQuery2))){
+						$aErrors[] = mysqli_error();
 						continue;
 					}
 				}
@@ -1720,8 +1720,8 @@ class Install {
 			if(isset($aParams['engine'])) $sQuery=str_ireplace('ENGINE=InnoDB', "ENGINE={$aParams['engine']}",$sQuery);
 
 			if($sQuery!='') {
-				$bResult=mysql_query($sQuery);
-				if(!$bResult) $aErrors[] = mysql_error();
+				$bResult=mysqli_query($sQuery);
+				if(!$bResult) $aErrors[] = mysqli_error();
 			}
 		}
 
@@ -1739,8 +1739,8 @@ class Install {
 	 */
 	public function addEnumTypeDatabase($sTableName,$sFieldName,$sType) {
 		$sQuery="SHOW COLUMNS FROM  `{$sTableName}`";
-		if ($res=mysql_query($sQuery)) {
-			while($aRow = mysql_fetch_assoc($res)) {
+		if ($res=mysqli_query($sQuery)) {
+			while($aRow = mysqli_fetch_assoc($res)) {
 				if ($aRow['Field'] == $sFieldName) break;
 			}
 			if (strpos($aRow['Type'], "'{$sType}'") === FALSE) {
@@ -1748,7 +1748,7 @@ class Install {
 				$sQuery="ALTER TABLE `{$sTableName}` MODIFY `{$sFieldName}` ".$aRow['Type'];
 				$sQuery.= ($aRow['Null']=='NO') ? ' NOT NULL ' : ' NULL ';
 				$sQuery.= is_null($aRow['Default']) ? ' DEFAULT NULL ' : " DEFAULT '{$aRow['Default']}' ";
-				mysql_query($sQuery);
+				mysqli_query($sQuery);
 			}
 		}
 	}
@@ -1760,7 +1760,7 @@ class Install {
 	 */
 	public function isTableExistsDatabase($sTableName) {
 		$sQuery="SHOW TABLES LIKE '{$sTableName}'";
-		if ($res=mysql_query($sQuery)) {
+		if ($res=mysqli_query($sQuery)) {
 			return true;
 		}
 		return false;
@@ -1774,8 +1774,8 @@ class Install {
 	 */
 	public function isFieldExistsDatabase($sTableName,$sFieldName) {
 		$sQuery="SHOW FIELDS FROM `{$sTableName}`";
-		if ($res=mysql_query($sQuery)) {
-			while($aRow = mysql_fetch_assoc($res)) {
+		if ($res=mysqli_query($sQuery)) {
+			while($aRow = mysqli_fetch_assoc($res)) {
 				if ($aRow['Field'] == $sFieldName){
 					return true;
 				}
@@ -1830,7 +1830,7 @@ class Install {
         		`user_password` = md5('{$sPassword}')
 			WHERE `user_id` = 1";
 
-		return mysql_query($sQuery);		
+		return mysqli_query($sQuery);		
 	}
 	/**
 	 * Перезаписывает название блога в базе данных
@@ -1843,10 +1843,10 @@ class Install {
         $sQuery = "
         	UPDATE `{$sPrefix}blog`
         	SET 
-        		`blog_title`    = '".mysql_real_escape_string($sBlogName)."'
+        		`blog_title`    = '".mysqli_real_escape_string($sBlogName)."'
 			WHERE `blog_id` = 1";
 
-		return mysql_query($sQuery);
+		return mysqli_query($sQuery);
 	}
 	/**
 	 * Проверяет, использует ли mysql запрос, одну из указанных в массиве таблиц
