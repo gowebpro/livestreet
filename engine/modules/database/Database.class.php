@@ -60,6 +60,7 @@ class ModuleDatabase extends Module {
 	public function SetReplicaMasterByTable($aReplicaMasterByTable) {
 		$this->aReplicaMasterByTable=$aReplicaMasterByTable;
 	}
+
 	/**
 	 * Получает объект БД
 	 *
@@ -68,71 +69,122 @@ class ModuleDatabase extends Module {
 	 */
 	public function GetConnect($aConfig=null) {
 		/**
-		 * Если конфиг не передан то используем главный конфиг БД из config.php
+		 * Получаем DSN
 		 */
-		if (is_null($aConfig)) {
-			$aConfig = Config::Get('db.params');
-		}
-		$sParams='';
-		if (isset($aConfig['params']) and is_array($aConfig['params'])){
-			$sParams='?'.http_build_query($aConfig['params'],'','&');
-		}
-		$sDSN=$aConfig['type'].'wrapper://'.$aConfig['user'].':'.$aConfig['pass'].'@'.$aConfig['host'].':'.$aConfig['port'].'/'.$aConfig['dbname'].$sParams;
+		$sDSN = $this->GetDSNByConfig($aConfig);
 		/**
 		 * Создаём хеш подключения, уникальный для каждого конфига
 		 */
-		$sDSNKey=md5($sDSN);
+		$sDSNKey = md5($sDSN);
 		/**
 		 * Проверяем создавали ли уже коннект с такими параметрами подключения(DSN)
 		 */
-		if (isset($this->aInstance[$sDSNKey])) {
+		if (isset($this->aInstance[$sDSNKey]) and !$bForce) {
 			return $this->aInstance[$sDSNKey];
 		} else {
 			/**
 			 * Если такого коннекта еще не было то создаём его
 			 */
-			$oDbSimple=DbSimple_Generic::connect($sDSN);
+			$oDbSimple = DbSimple_Generic::connect($sDSN);
 			/**
 			 * Устанавливаем хук на перехват ошибок при работе с БД
 			 */
-			$oDbSimple->setErrorHandler('databaseErrorHandler');
+			$oDbSimple->setErrorHandler(array($this, 'CallbackError'));
 			/**
 			 * Если нужно логировать все SQL запросы то подключаем логгер
 			 */
 			if (Config::Get('sys.logs.sql_query')) {
-				$oDbSimple->setLogger('databaseLogger');
+				$oDbSimple->setLogger(array($this, 'CallbackQuery'));
 			}
 			/**
 			 * Устанавливаем настройки соединения, по хорошему этого здесь не должно быть :)
 			 * считайте это костылём
 			 */
 			$oDbSimple->query("set character_set_client='utf8', character_set_results='utf8', collation_connection='utf8_bin' ");
-			$oWrapper=new ModuleDatabase_DbSimpleWrapper($oDbSimple);
+			$oWrapper = new ModuleDatabase_DbSimpleWrapper($oDbSimple);
 			/**
 			 * Сохраняем коннект
 			 */
-			$this->aInstance[$sDSNKey]=$oWrapper;
+			$this->aInstance[$sDSNKey] = $oWrapper;
 			/**
 			 * Возвращаем коннект
 			 */
 			return $oWrapper;
 		}
 	}
+
+	/**
+	 * Производит переподключение к БД
+	 * @param null $aConfig
+	 *
+	 * @return bool
+	 */
+	public function ReConnect($aConfig=null) {
+		/**
+		 * Получаем DSN
+		 */
+		$sDSN = $this->GetDSNByConfig($aConfig);
+		/**
+		 * Создаём хеш подключения, уникальный для каждого конфига
+		 */
+		$sDSNKey = md5($sDSN);
+		if (isset($this->aInstance[$sDSNKey])) {
+			if ($this->aInstance[$sDSNKey]->reconnect() !== false) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Производит переподключение ко всем БД
+	 */
+	public function ReConnectAll() {
+		foreach ($this->aInstance as $oDb) {
+			$oDb->reconnect();
+		}
+	}
+
+	/**
+	 * Возвращает DSN строку из конфига
+	 *
+	 * @param null $aConfig
+	 *
+	 * @return string
+	 */
+	protected function GetDSNByConfig($aConfig=null) {
+		/**
+		 * Если конфиг не передан то используем главный конфиг БД из config.php
+		 */
+		if (is_null($aConfig)) {
+			$aConfig = Config::Get('db.params');
+		}
+		$sParams = '';
+		if (isset($aConfig['params']) and is_array($aConfig['params'])) {
+			$sParams = '?' . http_build_query($aConfig['params'], '', '&');
+		}
+		return $aConfig['type'] . '://' . $aConfig['user'] . ':' . $aConfig['pass'] . '@' . $aConfig['host'] . ':' . $aConfig['port'] . '/' . $aConfig['dbname'] . $sParams;
+	}
+
 	/**
 	 * Возвращает статистику использования БД - время и количество запросов
 	 *
 	 * @return array
 	 */
 	public function GetStats() {
-		$aQueryStats=array('time'=>0,'count'=>-1); // не считаем тот самый костыльный запрос, который устанавливает настройки DB соединения
+		$aQueryStats = array('time' => 0, 'count' => -1); // не считаем тот самый костыльный запрос, который устанавливает настройки DB соединения
 		foreach ($this->aInstance as $oDb) {
-			$aStats=$oDb->getStatistics();
-			$aQueryStats['time']+=$aStats['time'];
-			$aQueryStats['count']+=$aStats['count'];
+			$aStats = $oDb->getStatistics();
+			$aQueryStats['time'] += $aStats['time'];
+			$aQueryStats['count'] += $aStats['count'];
 		}
-		$aQueryStats['time']=round($aQueryStats['time'],3);
+		$aQueryStats['time'] = round($aQueryStats['time'], 3);
+		if ($aQueryStats['count'] > 0) {
+			$aQueryStats['count']--; // не считаем тот самый костыльный запрос, который устанавливает настройки DB соединения
+		}
 		return $aQueryStats;
 	}
+
 	/**
 	 * Экспорт SQL дампа в БД
 	 * @see ExportSQLQuery
@@ -141,11 +193,11 @@ class ModuleDatabase extends Module {
 	 * @param array|null $aConfig	Конфиг подключения к БД
 	 * @return array
 	 */
-	public function ExportSQL($sFilePath,$aConfig=null) {
-		if(!is_file($sFilePath)){
-			return array('result'=>false,'errors'=>array("cant find file '$sFilePath'"));
-		}elseif(!is_readable($sFilePath)){
-			return array('result'=>false,'errors'=>array("cant read file '$sFilePath'"));
+	public function ExportSQL($sFilePath, $aConfig=null) {
+		if (!is_file($sFilePath)) {
+			return array('result' => false, 'errors' => array("cant find file '$sFilePath'"));
+		} elseif (!is_readable($sFilePath)) {
+			return array('result' => false, 'errors' => array("cant read file '$sFilePath'"));
 		}
 		$sFileQuery = file_get_contents($sFilePath);
 		return $this->ExportSQLQuery($sFileQuery,$aConfig);
@@ -158,7 +210,7 @@ class ModuleDatabase extends Module {
 	 * @param array|null $aConfig	Конфиг подключения к БД
 	 * @return array	Возвращает массив вида array('result'=>bool,'errors'=>array())
 	 */
-	public function ExportSQLQuery($sFileQuery,$aConfig=null) {
+	public function ExportSQLQuery($sFileQuery, $aConfig=null) {
 		/**
 		 * Замена префикса таблиц
 		 */
@@ -168,30 +220,35 @@ class ModuleDatabase extends Module {
 		 * Массивы запросов и пустой контейнер для сбора ошибок
 		 */
 		$aErrors = array();
-		$aQuery=explode(';',$sFileQuery);
+		$aQuery = preg_split("#;(\n|\r)+#", $sFileQuery, null, PREG_SPLIT_NO_EMPTY);
 		/**
 		 * Выполняем запросы по очереди
 		 */
-		foreach($aQuery as $sQuery){
+		foreach ($aQuery as $sQuery){
 			$sQuery = trim($sQuery);
 			/**
 			 * Заменяем движек, если таковой указан в запросе
 			 */
-			if(Config::Get('db.tables.engine')!='InnoDB') $sQuery=str_ireplace('ENGINE=InnoDB', "ENGINE=".Config::Get('db.tables.engine'),$sQuery);
+			if (Config::Get('db.tables.engine') != 'InnoDB') {
+				$sQuery = str_ireplace('ENGINE=InnoDB', "ENGINE=" . Config::Get('db.tables.engine'), $sQuery);
+			}
 
-			if($sQuery!='') {
-				$bResult=$this->GetConnect($aConfig)->query($sQuery);
-				if($bResult===false) $aErrors[] = mysql_error();
+			if ($sQuery != '') {
+				$bResult = $this->GetConnect($aConfig)->query($sQuery);
+				if ($bResult === false) {
+					$aErrors[] = mysql_error();
+				}
 			}
 		}
 		/**
 		 * Возвращаем результат выполнения, взависимости от количества ошибок
 		 */
-		if(count($aErrors)==0) {
-			return array('result'=>true,'errors'=>null);
+		if (count($aErrors) == 0) {
+			return array('result' => true, 'errors' => null);
 		}
-		return array('result'=>false,'errors'=>$aErrors);
+		return array('result' => false, 'errors' => $aErrors);
 	}
+
 	/**
 	 * Проверяет существование таблицы
 	 *
@@ -199,14 +256,15 @@ class ModuleDatabase extends Module {
 	 * @param array|null $aConfig	Конфиг подключения к БД
 	 * @return bool
 	 */
-	public function isTableExists($sTableName,$aConfig=null) {
+	public function isTableExists($sTableName, $aConfig=null) {
 		$sTableName = str_replace('prefix_', Config::Get('db.table.prefix'), $sTableName);
-		$sQuery="SHOW TABLES LIKE '{$sTableName}'";
-		if ($aRows=$this->GetConnect($aConfig)->select($sQuery)) {
+		$sQuery = "SHOW TABLES LIKE '{$sTableName}'";
+		if ($aRows = $this->GetConnect($aConfig)->select($sQuery)) {
 			return true;
 		}
 		return false;
 	}
+
 	/**
 	 * Проверяет существование поля в таблице
 	 *
@@ -215,10 +273,10 @@ class ModuleDatabase extends Module {
 	 * @param array|null $aConfig	Конфиг подключения к БД
 	 * @return bool
 	 */
-	public function isFieldExists($sTableName,$sFieldName,$aConfig=null) {
+	public function isFieldExists($sTableName, $sFieldName, $aConfig=null) {
 		$sTableName = str_replace('prefix_', Config::Get('db.table.prefix'), $sTableName);
-		$sQuery="SHOW FIELDS FROM `{$sTableName}`";
-		if ($aRows=$this->GetConnect($aConfig)->select($sQuery)) {
+		$sQuery = "SHOW FIELDS FROM `{$sTableName}`";
+		if ($aRows = $this->GetConnect($aConfig)->select($sQuery)) {
 			foreach ($aRows as $aRow){
 				if ($aRow['Field'] == $sFieldName){
 					return true;
@@ -227,6 +285,7 @@ class ModuleDatabase extends Module {
 		}
 		return false;
 	}
+
 	/**
 	 * Доавляет новый тип в поле таблицы с типом enum
 	 *
@@ -235,84 +294,79 @@ class ModuleDatabase extends Module {
 	 * @param string $sType	Название типа
 	 * @param array|null $aConfig	Конфиг подключения к БД
 	 */
-	public function addEnumType($sTableName,$sFieldName,$sType,$aConfig=null) {
+	public function addEnumType($sTableName, $sFieldName, $sType, $aConfig=null) {
 		$sTableName = str_replace('prefix_', Config::Get('db.table.prefix'), $sTableName);
-		$sQuery="SHOW COLUMNS FROM  `{$sTableName}`";
+		$sQuery = "SHOW COLUMNS FROM  `{$sTableName}`";
 
-		if ($aRows=$this->GetConnect($aConfig)->select($sQuery)) {
-			foreach ($aRows as $aRow){
-				if ($aRow['Field'] == $sFieldName) break;
+		if ($aRows = $this->GetConnect($aConfig)->select($sQuery)) {
+			foreach ($aRows as $aRow) {
+				if ($aRow['Field'] == $sFieldName) {
+					break;
+				}
 			}
-			if (strpos($aRow['Type'], "'{$sType}'") === FALSE) {
-				$aRow['Type'] =str_ireplace('enum(', "enum('{$sType}',", $aRow['Type']);
-				$sQuery="ALTER TABLE `{$sTableName}` MODIFY `{$sFieldName}` ".$aRow['Type'];
-				$sQuery.= ($aRow['Null']=='NO') ? ' NOT NULL ' : ' NULL ';
-				$sQuery.= is_null($aRow['Default']) ? ' DEFAULT NULL ' : " DEFAULT '{$aRow['Default']}' ";
+			if (strpos($aRow['Type'], "'{$sType}'") === false) {
+				$aRow['Type'] = str_ireplace('enum(', "enum('{$sType}',", $aRow['Type']);
+				$sQuery = "ALTER TABLE `{$sTableName}` MODIFY `{$sFieldName}` " . $aRow['Type'];
+				$sQuery .= ($aRow['Null'] == 'NO') ? ' NOT NULL ' : ' NULL ';
+				$sQuery .= is_null($aRow['Default']) ? ' DEFAULT NULL ' : " DEFAULT '{$aRow['Default']}' ";
 				$this->GetConnect($aConfig)->select($sQuery);
 			}
 		}
 	}
 
-}
-
-/**
- * Функция хука для перехвата SQL ошибок
- *
- * @param string $message	Сообщение об ошибке
- * @param array $info	Список информации об ошибке
- */
-function databaseErrorHandler($message, $info) {
 	/**
-	 * Записываем информацию об ошибке в переменную $msg
+	 * Коллбек обработки SQL ошибок
+	 *
+	 * @param string $sMessage Сообщение об ошибке
+	 * @param array $aInfo Список информации об ошибке
 	 */
-	$msg="SQL Error: $message<br>\n";
-	$msg.=print_r($info,true);
-	/**
-	 * Если нужно логировать SQL ошибке то пишем их в лог
-	 */
-	if (Config::Get('sys.logs.sql_error')) {
+	public function CallbackError($sMessage, $aInfo) {
 		/**
-		 * Получаем ядро
+		 * Записываем информацию об ошибке в переменную $sMessage
 		 */
-		$oEngine=Engine::getInstance();
+		$sMessage = "SQL Error: $sMessage<br>\n";
+		$sMessage .= print_r($aInfo, true);
 		/**
-		 * Меняем имя файла лога на нужное, записываем в него ошибку и меняем имя обратно :)
+		 * Если нужно логировать SQL ошибке то пишем их в лог
 		 */
-		$sOldName=$oEngine->Logger_GetFileName();
-		$oEngine->Logger_SetFileName(Config::Get('sys.logs.sql_error_file'));
-		$oEngine->Logger_Error($msg);
-		$oEngine->Logger_SetFileName($sOldName);
+		if (Config::Get('sys.logs.sql_error')) {
+			/**
+			 * Меняем имя файла лога на нужное, записываем в него ошибку и меняем имя обратно :)
+			 */
+			$sOldName = $this->Logger_GetFileName();
+			$this->Logger_SetFileName(Config::Get('sys.logs.sql_error_file'));
+			$this->Logger_Error($sMessage);
+			$this->Logger_SetFileName($sOldName);
+		}
+		/**
+		 * Если стоит вывод ошибок то выводим ошибку на экран(браузер)
+		 */
+		if (error_reporting() && ini_get('display_errors')) {
+			exit($sMessage);
+		}
 	}
-	/**
-	 * Если стоит вывод ошибок то выводим ошибку на экран(браузер)
-	 */
-	if (error_reporting() && ini_get('display_errors')) {
-		exit($msg);
-	}
-}
-
-/**
- * Функция логгирования SQL запросов
- *
- * @param object $db
- * @param array $sql
- */
-function databaseLogger($db, $sql) {
-	/**
-	 * Получаем информацию о запросе и сохраняем её в переменной $msg
-	 */
-	$caller = $db->findLibraryCaller();
-	$msg=print_r($sql,true);
-	$aDsnParsed=$db->getDsnParsed();
-	$sDbPrefix='[DB:'.(isset($aDsnParsed['path']) ? $aDsnParsed['path'] : '').']';
 
 	/**
-	 * Получаем ядро и сохраняем в логе SQL запрос
+	 * Коллбек логгирования SQL запросов
+	 *
+	 * @param object $oDb
+	 * @param array $aSql
 	 */
-	$oEngine=Engine::getInstance();
-	$sOldName=$oEngine->Logger_GetFileName();
-	$oEngine->Logger_SetFileName(Config::Get('sys.logs.sql_query_file'));
-	$oEngine->Logger_Debug($sDbPrefix.$msg);
-	$oEngine->Logger_SetFileName($sOldName);
+	public function CallbackQuery($oDb, $aSql) {
+		/**
+		 * Получаем информацию о запросе
+		 */
+		$aCaller = $oDb->findLibraryCaller();
+		$sMsg = print_r($aSql, true);
+		$aDsnParsed = $oDb->getDsnParsed();
+		$sDbPrefix='[DB:' . (isset($aDsnParsed['path']) ? $aDsnParsed['path'] : '') . ']';
+		/**
+		 * Логируем
+		 */
+		$sOldName = $this->Logger_GetFileName();
+		$this->Logger_SetFileName(Config::Get('sys.logs.sql_query_file'));
+		$this->Logger_Debug($sDbPrefix . $sMsg);
+		$this->Logger_SetFileName($sOldName);
+	}
+
 }
-?>
