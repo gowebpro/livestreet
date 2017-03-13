@@ -17,6 +17,15 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+/**
+ * Проверяем наличие директории install
+ */
+if (is_dir(rtrim(dirname(__FILE__), '/') . '/install')){
+    $sUrl = rtrim(str_replace('index.php', '', $_SERVER['PHP_SELF']), '/\\') . '/install/';
+    header('Location: ' . $sUrl, true, 302);
+    exit();
+}
+
 header('Content-Type: text/html; charset=utf-8');
 header('X-Powered-By: LiveStreet CMS');
 
@@ -25,6 +34,10 @@ chdir(dirname(__FILE__));
 
 // Получаем объект конфигурации
 require_once("./config/loader.php");
+
+/**
+ * Заводим двигатель
+ */
 require_once(Config::Get('path.root.engine')."/classes/Engine.class.php");
 
 $oProfiler=ProfilerSimple::getInstance(Config::Get('path.root.server').'/logs/'.Config::Get('sys.logs.profiler_file'),Config::Get('sys.logs.profiler'));
@@ -34,4 +47,3 @@ $oRouter=Router::getInstance();
 $oRouter->Exec();
 
 $oProfiler->Stop($iTimeId);
-?>

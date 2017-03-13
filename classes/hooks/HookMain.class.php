@@ -33,13 +33,6 @@ class HookMain extends Hook {
 	 */
 	public function InitAction() {
 		/**
-		 * Проверяем наличие директории install
-		 */
-		if(is_dir(rtrim(Config::Get('path.root.server'),'/').'/install')){
-			$this->Message_AddErrorSingle($this->Lang_Get('install_directory_exists'));
-			Router::Action('error');
-		}
-		/**
 		 * Проверка на закрытый режим
 		 */
 		$oUserCurrent=$this->User_GetUserCurrent();
