@@ -532,7 +532,7 @@ class ModuleTopic_MapperTopic extends Mapper {
 	protected function buildFilter($aFilter) {
 		$sWhere='';
 		if (isset($aFilter['topic_date_more'])) {
-			$sWhere.=" AND t.topic_date_add >  '".$this->oDb->escape($aFilter['topic_date_more'])."'";
+			$sWhere.=" AND t.topic_date_add >  ".$this->oDb->escape($aFilter['topic_date_more']);
 		}
 		if (isset($aFilter['topic_publish'])) {
 			$sWhere.=" AND t.topic_publish =  ".(int)$aFilter['topic_publish'];
